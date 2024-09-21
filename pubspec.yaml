@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  geolocator: ^8.0.0
+  http: ^0.13.0         # HTTP client for API requests
 
 
   # The following adds the Cupertino Icons font to your application.
