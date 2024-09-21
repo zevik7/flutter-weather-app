@@ -28,6 +28,7 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
   String apiKey = 'bd18dc499b548b327f861fa74c665663';
   String location = 'Fetching location...';
   String weatherDescription = '';
+  String weatherIcon = '';
   double temperature = 0;
   double tempMax = 0;
   double tempMin = 0;
@@ -120,6 +121,9 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
           windSpeed = (weatherData['wind']['speed'] as num).toDouble(); // Ensure double
           humidity = weatherData['main']['humidity']; // This is an int, so no need to convert
           
+          // Get the icon from the current weather
+          weatherIcon = weatherData['weather'][0]['icon'];
+
           // Get sunrise and sunset from the 'sys' object
           sunrise = _formatTime(weatherData['sys']['sunrise']);
           sunset = _formatTime(weatherData['sys']['sunset']);
@@ -150,21 +154,39 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     try {
       final response = await http.get(Uri.parse(forecastUrl));
       if (response.statusCode == 200) {
-        final forecastDataRaw = json.decode(response.body);
+         final forecastDataRaw = json.decode(response.body);
         print('Forecast data received: $forecastDataRaw');
 
-        setState(() {
-          forecastData = forecastDataRaw['list'].take(5).map<Map<String, dynamic>>((entry) {
-            return {
+        DateTime currentTime = DateTime.now();
+
+        // Find the first forecast that's closest to the current time
+        List forecastList = forecastDataRaw['list'];
+        List<Map<String, dynamic>> filteredForecast = [];
+
+        for (var entry in forecastList) {
+          DateTime forecastTime = DateTime.fromMillisecondsSinceEpoch(entry['dt'] * 1000);
+
+          // Only add forecasts that are at or after the current time
+          if (forecastTime.isAfter(currentTime)) {
+            filteredForecast.add({
               'time': _formatTime(entry['dt']),
-              'weekday': DateFormat('EEEE').format(DateTime.fromMillisecondsSinceEpoch(entry['dt'] * 1000)),
+              'weekday': DateFormat('EEEE').format(forecastTime),
               'temp': (entry['main']['temp'] as num).toDouble(), // Ensure double
               'icon': entry['weather'][0]['icon'], // Use icon for forecast
-            };
-          }).toList();
+            });
+
+            // Stop after collecting 5 intervals
+            if (filteredForecast.length == 5) {
+              break;
+            }
+          }
+        }
+
+        setState(() {
+          forecastData = filteredForecast;
         });
 
-        print('Forecast details updated in state.');
+        print('Filtered forecast details updated in state.');
       } else {
         print('Failed to fetch forecast data: HTTP status ${response.statusCode}');
       }
@@ -186,10 +208,6 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'Weather App',
-              style: TextStyle(fontSize: 28.8, color: Colors.lightBlue), // Increased font size by 20%
-            ),
             SizedBox(height: 20),
             Text(
               location,
@@ -199,19 +217,62 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
               weatherDescription.toUpperCase(),
               style: TextStyle(fontSize: 24, color: Colors.black), // Increased font size by 20%
             ),
-            Icon(Icons.cloud, size: 96, color: Colors.black), // Increased icon size by 20%
+           Image.network(
+              'https://openweathermap.org/img/wn/$weatherIcon@2x.png',
+              width: 100,
+            ),
             Text(
               '${temperature.toStringAsFixed(1)}°',
               style: TextStyle(fontSize: 76.8, fontWeight: FontWeight.bold, color: Colors.black), // Increased font size by 20%
             ),
             Text('Max: ${tempMax.toStringAsFixed(1)}°, Min: ${tempMin.toStringAsFixed(1)}°', style: TextStyle(color: Colors.black)),
-            SizedBox(height: 20),
-            Text('Wind speed: ${windSpeed.toStringAsFixed(1)} km/h', style: TextStyle(color: Colors.black)),
-            Text('Humidity: ${humidity.toString()}%', style: TextStyle(color: Colors.black)),
-            SizedBox(height: 20),
-            Text('Sunrise: $sunrise', style: TextStyle(color: Colors.black)),
-            Text('Sunset: $sunset', style: TextStyle(color: Colors.black)),
-            SizedBox(height: 20),
+            SizedBox(height: 30),
+            // Add this inside your build method where you display the wind speed, humidity, sunrise, and sunset.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Column(
+                  children: [
+                    Text('Wind speed', style: TextStyle(color: Colors.black)),
+                    Text('${windSpeed.toStringAsFixed(1)} km/h', style: TextStyle(color: Colors.black)),
+                  ],
+                ),
+                Container(
+                  height: 30, // Line height
+                  width: 1, // Line width
+                  color: Colors.grey, // Line color
+                ),
+                Column(
+                  children: [
+                    Text('Humidity', style: TextStyle(color: Colors.black)),
+                    Text('${humidity.toString()}%', style: TextStyle(color: Colors.black)),
+                  ],
+                ),
+                Container(
+                  height: 30, // Line height
+                  width: 1, // Line width
+                  color: Colors.grey, // Line color
+                ),
+                Column(
+                  children: [
+                    Text('Sunrise', style: TextStyle(color: Colors.black)),
+                    Text(sunrise, style: TextStyle(color: Colors.black)),
+                  ],
+                ),
+                Container(
+                  height: 30, // Line height
+                  width: 1, // Line width
+                  color: Colors.grey, // Line color
+                ),
+                Column(
+                  children: [
+                    Text('Sunset', style: TextStyle(color: Colors.black)),
+                    Text(sunset, style: TextStyle(color: Colors.black)),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 40),
             // Display 3-hour forecast with weekdays
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
