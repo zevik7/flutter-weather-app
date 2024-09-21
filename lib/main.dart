@@ -39,30 +39,30 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
   @override
   void initState() {
     super.initState();
+    print('Initializing state and fetching location and weather...');
     _getLocationAndWeather();
   }
 
   Future<void> _getLocationAndWeather() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    // Check if location services are enabled
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    print('Checking location services...');
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       setState(() {
         location = 'Location services are disabled.';
       });
+      print('Location services are disabled.');
       return;
     }
 
-    // Check for permission
-    permission = await Geolocator.checkPermission();
+    print('Requesting location permission...');
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         setState(() {
           location = 'Location permission denied';
         });
+        print('Location permission denied.');
         return;
       }
     }
@@ -71,36 +71,44 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
       setState(() {
         location = 'Location permissions are permanently denied.';
       });
+      print('Location permissions are permanently denied.');
       return;
     }
 
-    // Get current location
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+    print('Fetching current location...');
+    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    print('Location obtained: Latitude ${position.latitude}, Longitude ${position.longitude}');
     _fetchWeather(position.latitude, position.longitude);
   }
 
   Future<void> _fetchWeather(double lat, double lon) async {
-    final String weatherUrl =
-        'https://api.openweathermap.org/data/2.5/onecall?lat=$lat&lon=$lon&exclude=minutely,hourly,alerts&units=metric&appid=$apiKey';
-
+    final String weatherUrl = 'https://api.openweathermap.org/data/2.5/onecall?lat=$lat&lon=$lon&exclude=minutely,hourly,alerts&units=metric&appid=$apiKey';
+    print('Fetching weather from API...');
     try {
       final response = await http.get(Uri.parse(weatherUrl));
-      final weatherData = json.decode(response.body);
-
-      setState(() {
-        location = weatherData['timezone'];
-        temperature = weatherData['current']['temp'];
-        weatherDescription = weatherData['current']['weather'][0]['description'];
-        tempMax = weatherData['daily'][0]['temp']['max'];
-        tempMin = weatherData['daily'][0]['temp']['min'];
-        windSpeed = weatherData['current']['wind_speed'];
-        sunrise = _formatTime(weatherData['current']['sunrise']);
-        sunset = _formatTime(weatherData['current']['sunset']);
-        humidity = weatherData['current']['humidity'];
-        forecast = weatherData['hourly'].sublist(0, 5); // Next 5 periods, 3 hours apart
-      });
+      if (response.statusCode == 200) {
+        final weatherData = json.decode(response.body);
+        setState(() {
+          location = weatherData['timezone'];
+          temperature = weatherData['current']['temp'];
+          weatherDescription = weatherData['current']['weather'][0]['description'];
+          tempMax = weatherData['daily'][0]['temp']['max'];
+          tempMin = weatherData['daily'][0]['temp']['min'];
+          windSpeed = weatherData['current']['wind_speed'];
+          sunrise = _formatTime(weatherData['current']['sunrise']);
+          sunset = _formatTime(weatherData['current']['sunset']);
+          humidity = weatherData['current']['humidity'];
+          forecast = weatherData['hourly'].take(5).toList(); // Next 5 periods, 3 hours apart
+        });
+        print('Weather data fetched and state updated.');
+      } else {
+        print('Failed to fetch weather data: HTTP status ${response.statusCode}');
+        setState(() {
+          location = 'Error fetching weather data';
+        });
+      }
     } catch (error) {
+      print('Error fetching weather data: $error');
       setState(() {
         location = 'Error fetching weather data';
       });
@@ -140,7 +148,6 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
             ),
             Text('Max: ${tempMax.toStringAsFixed(1)}°, Min: ${tempMin.toStringAsFixed(1)}°'),
             SizedBox(height: 20),
-            // Forecast
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
