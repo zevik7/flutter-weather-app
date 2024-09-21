@@ -34,6 +34,7 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
   int humidity = 0;
   String sunrise = '';
   String sunset = '';
+  List<Map<String, dynamic>> forecastData = [];
 
   @override
   void initState() {
@@ -83,20 +84,24 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
     print('Location obtained: Latitude ${position.latitude}, Longitude ${position.longitude}');
-    _fetchWeather(position.latitude, position.longitude);
+    
+    // Fetch both current weather and forecast
+    _fetchCurrentWeather(position.latitude, position.longitude);
+    _fetchForecastWeather(position.latitude, position.longitude);
   }
 
-  Future<void> _fetchWeather(double lat, double lon) async {
+  // Fetch current weather using the /weather API
+  Future<void> _fetchCurrentWeather(double lat, double lon) async {
     final String weatherUrl =
         'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric';
 
-    print('Fetching weather data from API...');
+    print('Fetching current weather data from API...');
     print('API URL: $weatherUrl');
     try {
       final response = await http.get(Uri.parse(weatherUrl));
       if (response.statusCode == 200) {
         final weatherData = json.decode(response.body);
-        print('Weather data received: $weatherData');
+        print('Current weather data received: $weatherData');
 
         setState(() {
           location = weatherData['name']; // City name
@@ -112,9 +117,9 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
           sunset = _formatTime(weatherData['sys']['sunset']);
         });
 
-        print('Weather details updated in state.');
+        print('Current weather details updated in state.');
       } else {
-        print('Failed to fetch weather data: HTTP status ${response.statusCode}');
+        print('Failed to fetch current weather data: HTTP status ${response.statusCode}');
         setState(() {
           location = 'Error fetching weather data';
         });
@@ -127,6 +132,38 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     }
   }
 
+  // Fetch 3-hour forecast using the /forecast API
+  Future<void> _fetchForecastWeather(double lat, double lon) async {
+    final String forecastUrl =
+        'https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$apiKey&units=metric';
+
+    print('Fetching forecast data from API...');
+    print('API URL: $forecastUrl');
+    try {
+      final response = await http.get(Uri.parse(forecastUrl));
+      if (response.statusCode == 200) {
+        final forecastDataRaw = json.decode(response.body);
+        print('Forecast data received: $forecastDataRaw');
+
+        setState(() {
+          forecastData = forecastDataRaw['list'].take(5).map<Map<String, dynamic>>((entry) {
+            return {
+              'time': _formatTime(entry['dt']),
+              'temp': entry['main']['temp'],
+              'icon': entry['weather'][0]['icon'],
+            };
+          }).toList();
+        });
+
+        print('Forecast details updated in state.');
+      } else {
+        print('Failed to fetch forecast data: HTTP status ${response.statusCode}');
+      }
+    } catch (error) {
+      print('Error fetching forecast data: $error');
+    }
+  }
+
   String _formatTime(int timestamp) {
     final DateTime time = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
@@ -135,37 +172,55 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blue[300],
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Weather Forecast!',
-              style: TextStyle(fontSize: 24, color: Colors.white),
+              '5-day forecast!',
+              style: TextStyle(fontSize: 28.8, color: Colors.lightBlue), // Increased font size by 20%
             ),
             SizedBox(height: 20),
             Text(
               location,
-              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 38.4, fontWeight: FontWeight.bold, color: Colors.black), // Increased font size by 20%
             ),
             Text(
               weatherDescription.toUpperCase(),
-              style: TextStyle(fontSize: 20, color: Colors.white),
+              style: TextStyle(fontSize: 24, color: Colors.black), // Increased font size by 20%
             ),
-            Icon(Icons.cloud, size: 80, color: Colors.white),
+            Icon(Icons.cloud, size: 96, color: Colors.black), // Increased icon size by 20%
             Text(
               '${temperature.toStringAsFixed(1)}°',
-              style: TextStyle(fontSize: 64, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 76.8, fontWeight: FontWeight.bold, color: Colors.black), // Increased font size by 20%
             ),
-            Text('Max: ${tempMax.toStringAsFixed(1)}°, Min: ${tempMin.toStringAsFixed(1)}°'),
+            Text('Max: ${tempMax.toStringAsFixed(1)}°, Min: ${tempMin.toStringAsFixed(1)}°', style: TextStyle(color: Colors.black)),
             SizedBox(height: 20),
-            Text('Wind speed: ${windSpeed.toStringAsFixed(1)} km/h', style: TextStyle(color: Colors.white)),
-            Text('Humidity: ${humidity.toString()}%', style: TextStyle(color: Colors.white)),
+            Text('Wind speed: ${windSpeed.toStringAsFixed(1)} km/h', style: TextStyle(color: Colors.black)),
+            Text('Humidity: ${humidity.toString()}%', style: TextStyle(color: Colors.black)),
             SizedBox(height: 20),
-            // Display Sunrise and Sunset times
-            Text('Sunrise: $sunrise', style: TextStyle(color: Colors.white)),
-            Text('Sunset: $sunset', style: TextStyle(color: Colors.white)),
+            Text('Sunrise: $sunrise', style: TextStyle(color: Colors.black)),
+            Text('Sunset: $sunset', style: TextStyle(color: Colors.black)),
+            SizedBox(height: 20),
+            // Display 3-hour forecast
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: forecastData.map((data) {
+                  return Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      children: [
+                        Text(data['time'], style: TextStyle(fontSize: 16, color: Colors.black)),
+                        Icon(Icons.wb_sunny, size: 32, color: Colors.black), // Replace with weather icon
+                        Text('${data['temp'].toStringAsFixed(1)}°', style: TextStyle(fontSize: 16, color: Colors.black)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ],
         ),
       ),
