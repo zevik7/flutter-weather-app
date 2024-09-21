@@ -24,28 +24,30 @@ class WeatherHomePage extends StatefulWidget {
 }
 
 class _WeatherHomePageState extends State<WeatherHomePage> {
-  String apiKey = '664b14a3ccc6ad01c1776f06cbde55ca';
+  String apiKey = 'bd18dc499b548b327f861fa74c665663';
   String location = 'Fetching location...';
   String weatherDescription = '';
   double temperature = 0;
   double tempMax = 0;
   double tempMin = 0;
   double windSpeed = 0;
+  int humidity = 0;
   String sunrise = '';
   String sunset = '';
-  int humidity = 0;
-  List<dynamic> forecast = [];
 
   @override
   void initState() {
     super.initState();
-    print('Initializing state and fetching location and weather...');
+    print('Initializing state and starting location and weather fetch...');
     _getLocationAndWeather();
   }
 
   Future<void> _getLocationAndWeather() async {
-    print('Checking location services...');
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Check if location services are enabled
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       setState(() {
         location = 'Location services are disabled.';
@@ -54,8 +56,9 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
       return;
     }
 
-    print('Requesting location permission...');
-    LocationPermission permission = await Geolocator.checkPermission();
+    // Check for permission
+    print('Checking location permission...');
+    permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
@@ -75,32 +78,41 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
       return;
     }
 
+    // Get current location
     print('Fetching current location...');
-    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
     print('Location obtained: Latitude ${position.latitude}, Longitude ${position.longitude}');
     _fetchWeather(position.latitude, position.longitude);
   }
 
   Future<void> _fetchWeather(double lat, double lon) async {
-    final String weatherUrl = 'https://api.openweathermap.org/data/2.5/onecall?lat=$lat&lon=$lon&exclude=minutely,hourly,alerts&units=metric&appid=$apiKey';
-    print('Fetching weather from API...');
+    final String weatherUrl =
+        'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric';
+
+    print('Fetching weather data from API...');
+    print('API URL: $weatherUrl');
     try {
       final response = await http.get(Uri.parse(weatherUrl));
       if (response.statusCode == 200) {
         final weatherData = json.decode(response.body);
+        print('Weather data received: $weatherData');
+
         setState(() {
-          location = weatherData['timezone'];
-          temperature = weatherData['current']['temp'];
-          weatherDescription = weatherData['current']['weather'][0]['description'];
-          tempMax = weatherData['daily'][0]['temp']['max'];
-          tempMin = weatherData['daily'][0]['temp']['min'];
-          windSpeed = weatherData['current']['wind_speed'];
-          sunrise = _formatTime(weatherData['current']['sunrise']);
-          sunset = _formatTime(weatherData['current']['sunset']);
-          humidity = weatherData['current']['humidity'];
-          forecast = weatherData['hourly'].take(5).toList(); // Next 5 periods, 3 hours apart
+          location = weatherData['name']; // City name
+          temperature = weatherData['main']['temp'];
+          weatherDescription = weatherData['weather'][0]['description'];
+          tempMax = weatherData['main']['temp_max'];
+          tempMin = weatherData['main']['temp_min'];
+          windSpeed = weatherData['wind']['speed'];
+          humidity = weatherData['main']['humidity'];
+          
+          // Get sunrise and sunset from the 'sys' object
+          sunrise = _formatTime(weatherData['sys']['sunrise']);
+          sunset = _formatTime(weatherData['sys']['sunset']);
         });
-        print('Weather data fetched and state updated.');
+
+        print('Weather details updated in state.');
       } else {
         print('Failed to fetch weather data: HTTP status ${response.statusCode}');
         setState(() {
@@ -129,7 +141,7 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '5-day forecast!',
+              'Weather Forecast!',
               style: TextStyle(fontSize: 24, color: Colors.white),
             ),
             SizedBox(height: 20),
@@ -148,26 +160,12 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
             ),
             Text('Max: ${tempMax.toStringAsFixed(1)}°, Min: ${tempMin.toStringAsFixed(1)}°'),
             SizedBox(height: 20),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: forecast.map((data) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      children: [
-                        Icon(Icons.wb_sunny, color: Colors.white),
-                        Text('${data['temp'].toStringAsFixed(1)}°', style: TextStyle(color: Colors.white)),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
+            Text('Wind speed: ${windSpeed.toStringAsFixed(1)} km/h', style: TextStyle(color: Colors.white)),
+            Text('Humidity: ${humidity.toString()}%', style: TextStyle(color: Colors.white)),
             SizedBox(height: 20),
-            Text('Wind speed: ${windSpeed} km/h'),
-            Text('Sunrise: $sunrise, Sunset: $sunset'),
-            Text('Humidity: $humidity%'),
+            // Display Sunrise and Sunset times
+            Text('Sunrise: $sunrise', style: TextStyle(color: Colors.white)),
+            Text('Sunset: $sunset', style: TextStyle(color: Colors.white)),
           ],
         ),
       ),
