@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart'; // Import to handle weekdays and date formatting
 
 void main() => runApp(WeatherApp());
 
@@ -85,9 +86,16 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
         desiredAccuracy: LocationAccuracy.high);
     print('Location obtained: Latitude ${position.latitude}, Longitude ${position.longitude}');
     
-    // Fetch both current weather and forecast
-    _fetchCurrentWeather(position.latitude, position.longitude);
-    _fetchForecastWeather(position.latitude, position.longitude);
+    // Temporarily use hardcoded values for testing
+    double lat = 10.036111;
+    double lon = 105.787222;
+    
+    // Skip fetching the device's actual location and use the test values
+    print('Using hardcoded test location: Latitude $lat, Longitude $lon');
+    
+    // Fetch both current weather and forecast using the hardcoded values
+    _fetchCurrentWeather(lat, lon);
+    _fetchForecastWeather(lat, lon);
   }
 
   // Fetch current weather using the /weather API
@@ -149,8 +157,9 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
           forecastData = forecastDataRaw['list'].take(5).map<Map<String, dynamic>>((entry) {
             return {
               'time': _formatTime(entry['dt']),
-              'temp': entry['main']['temp'],
-              'icon': entry['weather'][0]['icon'],
+              'weekday': DateFormat('EEEE').format(DateTime.fromMillisecondsSinceEpoch(entry['dt'] * 1000)),
+              'temp': (entry['main']['temp'] as num).toDouble(), // Ensure double
+              'icon': entry['weather'][0]['icon'], // Use icon for forecast
             };
           }).toList();
         });
@@ -203,17 +212,18 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
             Text('Sunrise: $sunrise', style: TextStyle(color: Colors.black)),
             Text('Sunset: $sunset', style: TextStyle(color: Colors.black)),
             SizedBox(height: 20),
-            // Display 3-hour forecast
+            // Display 3-hour forecast with weekdays
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: forecastData.map((data) {
                   return Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0), // Added padding for better spacing
                     child: Column(
                       children: [
+                        Text(data['weekday'], style: TextStyle(fontSize: 16, color: Colors.black)), // Display weekday
                         Text(data['time'], style: TextStyle(fontSize: 16, color: Colors.black)),
-                        Icon(Icons.wb_sunny, size: 32, color: Colors.black), // Replace with weather icon
+                        Image.network('https://openweathermap.org/img/wn/${data['icon']}@2x.png', width: 50), // Display weather icon
                         Text('${data['temp'].toStringAsFixed(1)}°', style: TextStyle(fontSize: 16, color: Colors.black)),
                       ],
                     ),
