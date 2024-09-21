@@ -105,12 +105,12 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
 
         setState(() {
           location = weatherData['name']; // City name
-          temperature = weatherData['main']['temp'];
+          temperature = (weatherData['main']['temp'] as num).toDouble(); // Ensure double
           weatherDescription = weatherData['weather'][0]['description'];
-          tempMax = weatherData['main']['temp_max'];
-          tempMin = weatherData['main']['temp_min'];
-          windSpeed = weatherData['wind']['speed'];
-          humidity = weatherData['main']['humidity'];
+          tempMax = (weatherData['main']['temp_max'] as num).toDouble(); // Ensure double
+          tempMin = (weatherData['main']['temp_min'] as num).toDouble(); // Ensure double
+          windSpeed = (weatherData['wind']['speed'] as num).toDouble(); // Ensure double
+          humidity = weatherData['main']['humidity']; // This is an int, so no need to convert
           
           // Get sunrise and sunset from the 'sys' object
           sunrise = _formatTime(weatherData['sys']['sunrise']);
@@ -178,7 +178,7 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '5-day forecast!',
+              'Weather App',
               style: TextStyle(fontSize: 28.8, color: Colors.lightBlue), // Increased font size by 20%
             ),
             SizedBox(height: 20),
