@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart'; // Import to handle weekdays and date formatting
+import 'package:shimmer/shimmer.dart'; // Import the shimmer package
 
 void main() => runApp(WeatherApp());
 
@@ -37,6 +38,7 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
   String sunrise = '';
   String sunset = '';
   List<Map<String, dynamic>> forecastData = [];
+  bool loading = true; // Initially set to true since we are fetching data
 
   @override
   void initState() {
@@ -85,15 +87,16 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     print('Fetching current location...');
     Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
-    print('Location obtained: Latitude ${position.latitude}, Longitude ${position.longitude}');
-    
+    print(
+        'Location obtained: Latitude ${position.latitude}, Longitude ${position.longitude}');
+
     // Temporarily use hardcoded values for testing
     double lat = 10.036111;
     double lon = 105.787222;
-    
+
     // Skip fetching the device's actual location and use the test values
     print('Using hardcoded test location: Latitude $lat, Longitude $lon');
-    
+
     // Fetch both current weather and forecast using the hardcoded values
     _fetchCurrentWeather(lat, lon);
     _fetchForecastWeather(lat, lon);
@@ -114,24 +117,31 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
 
         setState(() {
           location = weatherData['name']; // City name
-          temperature = (weatherData['main']['temp'] as num).toDouble(); // Ensure double
+          temperature =
+              (weatherData['main']['temp'] as num).toDouble(); // Ensure double
           weatherDescription = weatherData['weather'][0]['description'];
-          tempMax = (weatherData['main']['temp_max'] as num).toDouble(); // Ensure double
-          tempMin = (weatherData['main']['temp_min'] as num).toDouble(); // Ensure double
-          windSpeed = (weatherData['wind']['speed'] as num).toDouble(); // Ensure double
-          humidity = weatherData['main']['humidity']; // This is an int, so no need to convert
-          
+          tempMax = (weatherData['main']['temp_max'] as num)
+              .toDouble(); // Ensure double
+          tempMin = (weatherData['main']['temp_min'] as num)
+              .toDouble(); // Ensure double
+          windSpeed =
+              (weatherData['wind']['speed'] as num).toDouble(); // Ensure double
+          humidity = weatherData['main']
+              ['humidity']; // This is an int, so no need to convert
+
           // Get the icon from the current weather
           weatherIcon = weatherData['weather'][0]['icon'];
 
           // Get sunrise and sunset from the 'sys' object
           sunrise = _formatTime(weatherData['sys']['sunrise']);
           sunset = _formatTime(weatherData['sys']['sunset']);
+          loading = false; // Set loading to false when data is ready
         });
 
         print('Current weather details updated in state.');
       } else {
-        print('Failed to fetch current weather data: HTTP status ${response.statusCode}');
+        print(
+            'Failed to fetch current weather data: HTTP status ${response.statusCode}');
         setState(() {
           location = 'Error fetching weather data';
         });
@@ -154,7 +164,7 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     try {
       final response = await http.get(Uri.parse(forecastUrl));
       if (response.statusCode == 200) {
-         final forecastDataRaw = json.decode(response.body);
+        final forecastDataRaw = json.decode(response.body);
         print('Forecast data received: $forecastDataRaw');
 
         DateTime currentTime = DateTime.now();
@@ -164,14 +174,16 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
         List<Map<String, dynamic>> filteredForecast = [];
 
         for (var entry in forecastList) {
-          DateTime forecastTime = DateTime.fromMillisecondsSinceEpoch(entry['dt'] * 1000);
+          DateTime forecastTime =
+              DateTime.fromMillisecondsSinceEpoch(entry['dt'] * 1000);
 
           // Only add forecasts that are at or after the current time
           if (forecastTime.isAfter(currentTime)) {
             filteredForecast.add({
               'time': _formatTime(entry['dt']),
               'weekday': DateFormat('EEEE').format(forecastTime),
-              'temp': (entry['main']['temp'] as num).toDouble(), // Ensure double
+              'temp':
+                  (entry['main']['temp'] as num).toDouble(), // Ensure double
               'icon': entry['weather'][0]['icon'], // Use icon for forecast
             });
 
@@ -184,11 +196,13 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
 
         setState(() {
           forecastData = filteredForecast;
+          loading = false; // Set loading to false when data is ready
         });
 
         print('Filtered forecast details updated in state.');
       } else {
-        print('Failed to fetch forecast data: HTTP status ${response.statusCode}');
+        print(
+            'Failed to fetch forecast data: HTTP status ${response.statusCode}');
       }
     } catch (error) {
       print('Error fetching forecast data: $error');
@@ -205,96 +219,266 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: loading ? _buildSkeleton() : _buildWeatherContent(),
+      ),
+    );
+  }
+
+  // Add shimmer effect to the skeleton
+  Widget _buildSkeleton() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Skeleton for city name
+          Container(
+            width: 200,
+            height: 30,
+            color: Colors.grey[300],
+            margin: EdgeInsets.only(bottom: 10),
+          ),
+          // Skeleton for weather description
+          Container(
+            width: 150,
+            height: 20,
+            color: Colors.grey[300],
+            margin: EdgeInsets.only(bottom: 20),
+          ),
+          // Skeleton for weather icon
+          Container(
+            width: 100,
+            height: 100,
+            color: Colors.grey[300],
+            margin: EdgeInsets.only(bottom: 20),
+          ),
+          // Skeleton for temperature
+          Container(
+            width: 150,
+            height: 50,
+            color: Colors.grey[300],
+            margin: EdgeInsets.only(bottom: 20),
+          ),
+          // Skeleton for Max/Min temperatures
+          Container(
+            width: 200,
+            height: 20,
+            color: Colors.grey[300],
+            margin: EdgeInsets.only(bottom: 20),
+          ),
+          // Skeleton for wind speed, humidity, sunrise, sunset
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildHorizontalSkeletonBlock(),
+              _buildVerticalDivider(),
+              _buildHorizontalSkeletonBlock(),
+              _buildVerticalDivider(),
+              _buildHorizontalSkeletonBlock(),
+              _buildVerticalDivider(),
+              _buildHorizontalSkeletonBlock(),
+            ],
+          ),
+          SizedBox(height: 20), // Add space before forecast
+          // Skeleton for forecast icons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(5, (_) => _buildForecastSkeleton()),
+          ),
+        ],
+      ),
+    );
+  }
+
+// Helper to build skeleton block for wind speed, humidity, etc.
+  Widget _buildHorizontalSkeletonBlock() {
+    return Column(
+      children: [
+        Container(
+          width: 60,
+          height: 20,
+          color: Colors.grey[300],
+          margin: EdgeInsets.only(bottom: 5),
+        ),
+        Container(
+          width: 60,
+          height: 20,
+          color: Colors.grey[300],
+        ),
+      ],
+    );
+  }
+
+// Helper to build a vertical divider between skeleton blocks
+  Widget _buildVerticalDivider() {
+    return Container(
+      width: 1,
+      height: 30,
+      color: Colors.grey[400],
+    );
+  }
+
+// Helper to build skeleton for forecast icons
+  Widget _buildForecastSkeleton() {
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 20,
+          color: Colors.grey[300],
+          margin: EdgeInsets.only(bottom: 5),
+        ),
+        Container(
+          width: 40,
+          height: 50,
+          color: Colors.grey[300],
+          margin: EdgeInsets.only(bottom: 5),
+        ),
+        Container(
+          width: 40,
+          height: 20,
+          color: Colors.grey[300],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWeatherContent() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(height: 20),
+        // City name
+        Text(
+          location,
+          style: TextStyle(
+            fontSize: 36, // Reduced font size
+            fontWeight: FontWeight.w600, // Lighter than bold
+            color: Colors.grey[800], // Dark gray instead of black
+          ),
+        ),
+        // Weather description
+        Text(
+          weatherDescription.toUpperCase(),
+          style: TextStyle(
+            fontSize: 20, // Adjusted size
+            fontWeight: FontWeight.w400, // Slightly lighter
+            color: Colors.grey[800], // Dark gray instead of black
+          ),
+        ),
+        Image.network(
+          'https://openweathermap.org/img/wn/$weatherIcon@2x.png',
+          width: 100,
+          loadingBuilder: (BuildContext context, Widget child,
+              ImageChunkEvent? loadingProgress) {
+            if (loadingProgress == null) {
+              return child; // Image has fully loaded, display it
+            } else {
+              return Container(
+                width: 100,
+                height: 100,
+                color:
+                    Colors.grey[300], // Display skeleton while image is loading
+              );
+            }
+          },
+        ),
+        // Temperature
+        Text(
+          '${temperature.toStringAsFixed(1)}°',
+          style: TextStyle(
+            fontSize: 72, // Reduced font size
+            fontWeight: FontWeight.w300, // Lighter than bold
+            color: Colors.grey[800], // Dark gray instead of black
+          ),
+        ),
+        Text(
+          'Max: ${tempMax.toStringAsFixed(1)}°, Min: ${tempMin.toStringAsFixed(1)}°',
+          style: TextStyle(
+            fontSize: 16, // Adjusted size
+            color: Colors.grey[800], // Dark gray
+          ),
+        ),
+        SizedBox(height: 30),
+        // Add this inside your build method where you display the wind speed, humidity, sunrise, and sunset.
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            SizedBox(height: 20),
-            Text(
-              location,
-              style: TextStyle(fontSize: 38.4, fontWeight: FontWeight.bold, color: Colors.black), // Increased font size by 20%
-            ),
-            Text(
-              weatherDescription.toUpperCase(),
-              style: TextStyle(fontSize: 24, color: Colors.black), // Increased font size by 20%
-            ),
-           Image.network(
-              'https://openweathermap.org/img/wn/$weatherIcon@2x.png',
-              width: 100,
-            ),
-            Text(
-              '${temperature.toStringAsFixed(1)}°',
-              style: TextStyle(fontSize: 76.8, fontWeight: FontWeight.bold, color: Colors.black), // Increased font size by 20%
-            ),
-            Text('Max: ${tempMax.toStringAsFixed(1)}°, Min: ${tempMin.toStringAsFixed(1)}°', style: TextStyle(color: Colors.black)),
-            SizedBox(height: 30),
-            // Add this inside your build method where you display the wind speed, humidity, sunrise, and sunset.
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            Column(
               children: [
-                Column(
-                  children: [
-                    Text('Wind speed', style: TextStyle(color: Colors.black)),
-                    Text('${windSpeed.toStringAsFixed(1)} km/h', style: TextStyle(color: Colors.black)),
-                  ],
-                ),
-                Container(
-                  height: 30, // Line height
-                  width: 1, // Line width
-                  color: Colors.grey, // Line color
-                ),
-                Column(
-                  children: [
-                    Text('Humidity', style: TextStyle(color: Colors.black)),
-                    Text('${humidity.toString()}%', style: TextStyle(color: Colors.black)),
-                  ],
-                ),
-                Container(
-                  height: 30, // Line height
-                  width: 1, // Line width
-                  color: Colors.grey, // Line color
-                ),
-                Column(
-                  children: [
-                    Text('Sunrise', style: TextStyle(color: Colors.black)),
-                    Text(sunrise, style: TextStyle(color: Colors.black)),
-                  ],
-                ),
-                Container(
-                  height: 30, // Line height
-                  width: 1, // Line width
-                  color: Colors.grey, // Line color
-                ),
-                Column(
-                  children: [
-                    Text('Sunset', style: TextStyle(color: Colors.black)),
-                    Text(sunset, style: TextStyle(color: Colors.black)),
-                  ],
-                ),
+                Text('Wind speed', style: TextStyle(color: Colors.grey[800])),
+                Text('${windSpeed.toStringAsFixed(1)} km/h',
+                    style: TextStyle(color: Colors.grey[800])),
               ],
             ),
-            SizedBox(height: 40),
-            // Display 3-hour forecast with weekdays
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: forecastData.map((data) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0), // Added padding for better spacing
-                    child: Column(
-                      children: [
-                        Text(data['weekday'], style: TextStyle(fontSize: 16, color: Colors.black)), // Display weekday
-                        Text(data['time'], style: TextStyle(fontSize: 16, color: Colors.black)),
-                        Image.network('https://openweathermap.org/img/wn/${data['icon']}@2x.png', width: 50), // Display weather icon
-                        Text('${data['temp'].toStringAsFixed(1)}°', style: TextStyle(fontSize: 16, color: Colors.black)),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+            Container(
+              height: 30, // Line height
+              width: 1, // Line width
+              color: Colors.grey, // Line color
+            ),
+            Column(
+              children: [
+                Text('Humidity', style: TextStyle(color: Colors.grey[800])),
+                Text('${humidity.toString()}%',
+                    style: TextStyle(color: Colors.grey[800])),
+              ],
+            ),
+            Container(
+              height: 30, // Line height
+              width: 1, // Line width
+              color: Colors.grey, // Line color
+            ),
+            Column(
+              children: [
+                Text('Sunrise', style: TextStyle(color: Colors.grey[800])),
+                Text(sunrise, style: TextStyle(color: Colors.grey[800])),
+              ],
+            ),
+            Container(
+              height: 30, // Line height
+              width: 1, // Line width
+              color: Colors.grey, // Line color
+            ),
+            Column(
+              children: [
+                Text('Sunset', style: TextStyle(color: Colors.grey[800])),
+                Text(sunset, style: TextStyle(color: Colors.grey[800])),
+              ],
             ),
           ],
         ),
-      ),
+        SizedBox(height: 40),
+        // Display 3-hour forecast with weekdays
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: forecastData.map((data) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0), // Added padding for better spacing
+                child: Column(
+                  children: [
+                    Text(data['weekday'],
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[800])), // Display weekday
+                    Text(data['time'],
+                        style:
+                            TextStyle(fontSize: 16, color: Colors.grey[800])),
+                    Image.network(
+                        'https://openweathermap.org/img/wn/${data['icon']}@2x.png',
+                        width: 50), // Display weather icon
+                    Text('${data['temp'].toStringAsFixed(1)}°',
+                        style:
+                            TextStyle(fontSize: 16, color: Colors.grey[800])),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 }
